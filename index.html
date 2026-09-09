@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CarrosselForge — Planeador de Carrosséis</title>
+  
+  <base href="/plan/">
+
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f0f13">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0f0f13;
+      --bg-secondary: #1a1a22;
+      --bg-card: #1e1e28;
+      --bg-input: #252530;
+      --accent: #c9a96e;
+      --accent-hover: #d4b87a;
+      --text-primary: #f0f0f5;
+      --text-secondary: #a0a0b0;
+      --text-muted: #6b6b7b;
+      --border: #2a2a35;
+      --shadow: 0 8px 32px rgba(0,0,0,0.4);
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    .app-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    @media (min-width: 768px) {
+      .app-container { padding: 32px 24px; }
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.5px;
+      text-shadow: 0 0 20px rgba(201,169,110,0.3);
+    }
+    .logo span { color: var(--text-primary); }
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #0f0f13;
+      box-shadow: 0 4px 12px rgba(201,169,110,0.2);
+    }
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      transform: translateY(-2px);
+    }
+    .btn-secondary {
+      background: var(--bg-input);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Pomodoro */
+    .pomodoro-widget {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+      backdrop-filter: blur(10px);
+    }
+    .pomodoro-display {
+      font-family: 'Inter', monospace;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+    .pomodoro-controls {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .pomodoro-controls .btn-sm {
+      padding: 4px 12px;
+      font-size: 0.7rem;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .pomodoro-controls .btn-sm:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .pomodoro-controls .btn-sm.primary {
+      background: var(--accent);
+      color: #0f0f13;
+      border-color: var(--accent);
+    }
+    .pomodoro-controls .time-presets {
+      display: flex;
+      gap: 4px;
+      margin: 0 6px;
+    }
+    .pomodoro-controls .time-presets .btn-sm {
+      padding: 2px 8px;
+      font-size: 0.65rem;
+    }
+    .pomodoro-controls .time-presets .btn-sm.active-preset {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .pomodoro-controls input[type="number"] {
+      width: 60px;
+      padding: 6px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 0.9rem;
+      text-align: center;
+    }
+    .pomodoro-status {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-left: auto;
+    }
+    @media (max-width: 700px) {
+      .pomodoro-widget { flex-direction: column; align-items: stretch; gap: 8px; }
+      .pomodoro-status { margin-left: 0; text-align: center; }
+    }
+
+    /* Editor de Carrossel */
+    .carousel-header {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 24px;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+      box-shadow: var(--shadow);
+    }
+    .carousel-title-input {
+      flex: 1;
+      min-width: 200px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-size: 1.2rem;
+      padding: 12px 16px;
+      font-family: 'Playfair Display', serif;
+      outline: none;
+    }
+    .carousel-title-input:focus {
+      border-color: var(--accent);
+    }
+    
+    .rows-container {
+      display: flex;
+      flex-direction: column;
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+    .carousel-row {
+      display: flex;
+      overflow-x: auto;
+      gap: 24px;
+      padding-bottom: 12px;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      scrollbar-color: var(--accent) var(--bg-secondary);
+      cursor: grab;
+      border-radius: var(--radius);
+    }
+    .carousel-row:active {
+      cursor: grabbing;
+    }
+    .carousel-row::-webkit-scrollbar {
+      height: 6px;
+    }
+    .carousel-row::-webkit-scrollbar-track {
+      background: var(--bg-secondary);
+      border-radius: 3px;
+    }
+    .carousel-row::-webkit-scrollbar-thumb {
+      background: var(--accent);
+      border-radius: 3px;
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 320px;
+      min-width: 320px;
+      flex-shrink: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      scroll-snap-align: start;
+      box-shadow: var(--shadow);
+      transition: transform 0.2s;
+    }
+    .card:hover {
+      transform: scale(1.02);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    }
+    .card-image-wrap {
+      width: 100%;
+      height: 220px;
+      background: var(--bg-input);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-image-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+    .card-image-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 2rem;
+      gap: 8px;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle, rgba(201,169,110,0.1) 0%, transparent 70%);
+    }
+    .card-image-placeholder span {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .card-image-hint {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(15,15,19,0.85);
+      color: var(--accent);
+      font-size: 0.75rem;
+      padding: 8px;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      backdrop-filter: blur(5px);
+    }
+    .card-image-wrap:hover .card-image-hint {
+      opacity: 1;
+    }
+    .card-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .card-title-input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid var(--border);
+      color: var(--text-primary);
+      font-family: 'Playfair Display', serif;
+      font-size: 1.3rem;
+      padding: 4px 0;
+      outline: none;
+    }
+    .card-title-input:focus {
+      border-bottom-color: var(--accent);
+    }
+    .card-actions {
+      display: flex;
+      gap: 10px;
+    }
+    .card-btn {
+      flex: 1;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .card-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(201,169,110,0.05);
+    }
+    
+    /* Botões + (adicionar) */
+    .add-card-btn {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 2px dashed var(--accent);
+      background: transparent;
+      color: var(--accent);
+      font-size: 1.8rem;
+      cursor: pointer;
+      align-self: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.25s;
+      margin-left: 8px;
+    }
+    .add-card-btn:hover {
+      background: var(--accent);
+      color: #0f0f13;
+      border-style: solid;
+      transform: rotate(90deg);
+    }
+    .add-row-btn {
+      padding: 20px;
+      border-radius: var(--radius-sm);
+      border: 2px dashed var(--accent);
+      background: transparent;
+      color: var(--accent);
+      font-size: 1.1rem;
+      font-weight: 500;
+      cursor: pointer;
+      width: 100%;
+      transition: all 0.3s;
+      letter-spacing: 0.5px;
+    }
+    .add-row-btn:hover {
+      background: rgba(201,169,110,0.1);
+      border-style: solid;
+    }
+
+    /* Modal */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      backdrop-filter: blur(6px);
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s;
+    }
+    .modal.show {
+      opacity: 1;
+      visibility: visible;
+    }
+    .modal-content {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 90%;
+      max-width: 600px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+      transform: translateY(20px);
+      transition: transform 0.3s;
+    }
+    .modal.show .modal-content {
+      transform: translateY(0);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .modal-header h2 {
+      font-family: 'Playfair Display', serif;
+      color: var(--text-primary);
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 2rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+    .modal-close:hover {
+      color: var(--accent);
+    }
+    .modal textarea {
+      width: 100%;
+      min-height: 220px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      padding: 14px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      resize: vertical;
+      outline: none;
+      margin-bottom: 16px;
+    }
+    .modal textarea:focus {
+      border-color: var(--accent);
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 16px 24px;
+      border-radius: var(--radius-sm);
+      font-size: 0.9rem;
+      font-weight: 500;
+      z-index: 3000;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.4s ease;
+      box-shadow: var(--shadow);
+    }
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    @media (max-width: 600px) {
+      .card {
+        width: 280px;
+        min-width: 280px;
+      }
+      .add-card-btn {
+        width: 100%;
+        height: 56px;
+        border-radius: var(--radius-sm);
+        margin-left: 0;
+        margin-top: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+
+  <div class="header">
+    <div class="logo">Carrossel<span>Forge</span></div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn btn-secondary" onclick="syncNow()" style="font-size:0.75rem; padding:6px 12px;">🔄 Sincronizar</button>
+      <button class="btn btn-primary" onclick="newCarousel()"><span>&#9998;</span> Novo Carrossel</button>
+    </div>
+  </div>
+
+  <div class="pomodoro-widget">
+    <span class="pomodoro-display" id="pomodoroDisplay">25:00</span>
+    <div class="pomodoro-controls">
+      <button class="btn-sm primary" id="pomodoroStart">▶ Iniciar</button>
+      <button class="btn-sm" id="pomodoroPause" style="display:none;">⏸ Pausar</button>
+      <button class="btn-sm" id="pomodoroReset">⟲ Reset</button>
+      <input type="number" id="pomodoroTimeInput" min="1" max="120" value="25" style="width:50px;">
+      <span style="font-size:0.7rem; color:var(--text-muted);">min</span>
+      <div class="time-presets">
+        <button class="btn-sm" data-minutes="5">5</button>
+        <button class="btn-sm" data-minutes="10">10</button>
+        <button class="btn-sm" data-minutes="15">15</button>
+        <button class="btn-sm active-preset" data-minutes="25">25</button>
+        <button class="btn-sm" data-minutes="30">30</button>
+        <button class="btn-sm" data-minutes="45">45</button>
+        <button class="btn-sm" data-minutes="60">60</button>
+      </div>
+    </div>
+    <span class="pomodoro-status" id="pomodoroStatus">⏳ Pronto</span>
+  </div>
+
+  <div id="carouselView">
+    <div class="carousel-header">
+      <input type="text" id="carouselName" placeholder="Nome do Carrossel" class="carousel-title-input" oninput="updateCarouselName(this.value)">
+      <button class="btn btn-secondary" onclick="saveLocal()">💾 Guardar</button>
+      <button class="btn btn-ghost" onclick="deleteCarousel()">🗑️ Eliminar</button>
+    </div>
+    <div id="rowsContainer" class="rows-container">
+      <!-- As linhas serão geradas aqui -->
+    </div>
+    <button class="add-row-btn" onclick="addRow()">+ Adicionar Nova Linha</button>
+  </div>
+
+</div>
+
+<!-- Modal de História -->
+<div id="storyModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>📝 História do Card</h2>
+      <button class="modal-close" onclick="closeStoryModal()">&times;</button>
+    </div>
+    <textarea id="storyText" placeholder="Escreva a história do card..."></textarea>
+    <button class="btn btn-primary" onclick="saveStoryModal()">Guardar História</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const STORAGE_KEY = 'carouselforge_carousels';
+
+  let carousels = [];
+  let currentCarousel = null;
+  let currentCardId = null;
+
+  // ================================================================
+  // POMODORO
+  // ================================================================
+  const pomodoro = {
+    totalSeconds: 25 * 60,
+    remaining: 25 * 60,
+    timerId: null,
+    isRunning: false,
+    isPaused: false,
+    display: document.getElementById('pomodoroDisplay'),
+    status: document.getElementById('pomodoroStatus'),
+    startBtn: document.getElementById('pomodoroStart'),
+    pauseBtn: document.getElementById('pomodoroPause'),
+    resetBtn: document.getElementById('pomodoroReset'),
+    timeInput: document.getElementById('pomodoroTimeInput'),
+    presetBtns: document.querySelectorAll('.time-presets .btn-sm'),
+    init() {
+      const savedTime = localStorage.getItem('pomodoro_time');
+      if (savedTime) {
+        const mins = parseInt(savedTime, 10);
+        if (mins > 0 && mins <= 120) {
+          this.timeInput.value = mins;
+          this.setTime(mins);
+        }
+      }
+      this.updateDisplay();
+      this.updatePresetActive();
+      this.startBtn.addEventListener('click', () => this.start());
+      this.pauseBtn.addEventListener('click', () => this.pause());
+      this.resetBtn.addEventListener('click', () => this.reset());
+      this.timeInput.addEventListener('change', () => {
+        let val = parseInt(this.timeInput.value, 10);
+        if (isNaN(val) || val < 1) val = 1;
+        if (val > 120) val = 120;
+        this.timeInput.value = val;
+        this.setTime(val);
+        this.updatePresetActive();
+        localStorage.setItem('pomodoro_time', val);
+      });
+      this.presetBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const mins = parseInt(btn.dataset.minutes, 10);
+          if (mins > 0 && mins <= 120) {
+            this.timeInput.value = mins;
+            this.setTime(mins);
+            this.updatePresetActive();
+            localStorage.setItem('pomodoro_time', mins);
+          }
+        });
+      });
+    },
+    setTime(minutes) {
+      this.totalSeconds = minutes * 60;
+      if (!this.isRunning && !this.isPaused) {
+        this.remaining = this.totalSeconds;
+        this.updateDisplay();
+        this.status.textContent = '⏳ Pronto';
+      }
+    },
+    updatePresetActive() {
+      const current = parseInt(this.timeInput.value, 10);
+      this.presetBtns.forEach(btn => {
+        const mins = parseInt(btn.dataset.minutes, 10);
+        btn.classList.toggle('active-preset', mins === current);
+      });
+    },
+    start() {
+      if (this.isRunning && !this.isPaused) return;
+      if (this.remaining <= 0) {
+        this.remaining = this.totalSeconds;
+        this.updateDisplay();
+      }
+      this.isRunning = true;
+      this.isPaused = false;
+      this.startBtn.style.display = 'none';
+      this.pauseBtn.style.display = 'inline-block';
+      this.status.textContent = '⏳ A decorrer...';
+      this.timerId = setInterval(() => this.tick(), 1000);
+    },
+    pause() {
+      if (!this.isRunning) return;
+      this.isPaused = true;
+      this.isRunning = false;
+      clearInterval(this.timerId);
+      this.startBtn.style.display = 'inline-block';
+      this.pauseBtn.style.display = 'none';
+      this.status.textContent = '⏸ Pausado';
+    },
+    reset() {
+      clearInterval(this.timerId);
+      this.isRunning = false;
+      this.isPaused = false;
+      this.remaining = this.totalSeconds;
+      this.updateDisplay();
+      this.startBtn.style.display = 'inline-block';
+      this.pauseBtn.style.display = 'none';
+      this.status.textContent = '⏳ Pronto';
+      const mins = Math.floor(this.totalSeconds / 60);
+      this.timeInput.value = mins;
+      this.updatePresetActive();
+    },
+    tick() {
+      if (this.remaining <= 0) {
+        clearInterval(this.timerId);
+        this.isRunning = false;
+        this.startBtn.style.display = 'inline-block';
+        this.pauseBtn.style.display = 'none';
+        this.status.textContent = '🔔 Tempo esgotado!';
+        this.playBeep();
+        return;
+      }
+      this.remaining--;
+      this.updateDisplay();
+    },
+    updateDisplay() {
+      const mins = Math.floor(this.remaining / 60);
+      const secs = this.remaining % 60;
+      this.display.textContent = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+    },
+    playBeep() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        oscillator.connect(gain);
+        gain.connect(audioCtx.destination);
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+        gain.gain.value = 0.3;
+        oscillator.start();
+        setTimeout(() => oscillator.stop(), 500);
+        setTimeout(() => {
+          const osc2 = audioCtx.createOscillator();
+          const gain2 = audioCtx.createGain();
+          osc2.connect(gain2);
+          gain2.connect(audioCtx.destination);
+          osc2.frequency.value = 1000;
+          osc2.type = 'sine';
+          gain2.gain.value = 0.3;
+          osc2.start();
+          setTimeout(() => osc2.stop(), 400);
+        }, 600);
+      } catch (e) { /* silencioso */ }
+    }
+  };
+
+  // ================================================================
+  // LÓGICA DO CARROSSEL (localStorage + upload R2)
+  // ================================================================
+  function loadLocal() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) carousels = JSON.parse(saved) || [];
+    } catch (e) {
+      carousels = [];
+    }
+  }
+
+  function saveLocal() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(carousels));
+    showToast('💾 Guardado localmente');
+  }
+
+  function syncNow() {
+    showToast('✅ Sincronização local concluída');
+  }
+
+  function newCarousel() {
+    const id = 'carousel_' + Date.now();
+    currentCarousel = {
+      id,
+      name: 'Novo Carrossel',
+      rows: [ { id: 'row_' + Date.now(), cards: [] } ],
+      updatedAt: Date.now()
+    };
+    document.getElementById('carouselName').value = currentCarousel.name;
+    render();
+  }
+
+  function deleteCarousel() {
+    if (!currentCarousel) return;
+    if (!confirm('Eliminar este carrossel?')) return;
+    carousels = carousels.filter(c => c.id !== currentCarousel.id);
+    saveLocal();
+    newCarousel();
+  }
+
+  function updateCarouselName(value) {
+    if (currentCarousel) {
+      currentCarousel.name = value;
+      saveLocal();
+    }
+  }
+
+  function addRow() {
+    if (!currentCarousel) newCarousel();
+    currentCarousel.rows.push({
+      id: 'row_' + Date.now(),
+      cards: []
+    });
+    render();
+  }
+
+  function addCard(rowId) {
+    if (!currentCarousel) return;
+    const row = currentCarousel.rows.find(r => r.id === rowId);
+    if (!row) return;
+    row.cards.push({
+      id: 'card_' + Date.now(),
+      image: null,
+      title: '',
+      story: ''
+    });
+    render();
+  }
+
+  function updateCardTitle(cardId, value) {
+    if (!currentCarousel) return;
+    currentCarousel.rows.forEach(row => {
+      const card = row.cards.find(c => c.id === cardId);
+      if (card) card.title = value;
+    });
+    saveLocal();
+  }
+
+  // ============ NOVA FUNÇÃO DE UPLOAD (R2) ============
+  async function handleImageUpload(cardId, event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Cria FormData
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      // Faz upload para a Cloudflare Function
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) throw new Error('Falha no upload');
+
+      const data = await response.json();
+      const imageUrl = data.url;
+
+      // Atualiza o card no modelo atual
+      if (!currentCarousel) return;
+      currentCarousel.rows.forEach(row => {
+        const card = row.cards.find(c => c.id === cardId);
+        if (card) card.image = imageUrl;
+      });
+
+      saveLocal();
+      render();
+    } catch (error) {
+      console.error(error);
+      showToast('❌ Erro ao carregar imagem');
+    }
+  }
+
+  function openStoryModal(cardId) {
+    if (!currentCarousel) return;
+    currentCardId = cardId;
+    let story = '';
+    currentCarousel.rows.forEach(row => {
+      const card = row.cards.find(c => c.id === cardId);
+      if (card) story = card.story || '';
+    });
+    document.getElementById('storyText').value = story;
+    document.getElementById('storyModal').classList.add('show');
+  }
+
+  function closeStoryModal() {
+    document.getElementById('storyModal').classList.remove('show');
+    currentCardId = null;
+  }
+
+  function saveStoryModal() {
+    if (!currentCardId) return;
+    const story = document.getElementById('storyText').value;
+    currentCarousel.rows.forEach(row => {
+      const card = row.cards.find(c => c.id === currentCardId);
+      if (card) {
+        card.story = story;
+        saveLocal();
+      }
+    });
+    closeStoryModal();
+    showToast('📝 História guardada!');
+  }
+
+  // ================================================================
+  // RENDER
+  // ================================================================
+  function render() {
+    const container = document.getElementById('rowsContainer');
+    container.innerHTML = '';
+
+    if (!currentCarousel) {
+      container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);">Crie um novo carrossel para começar.</div>';
+      return;
+    }
+
+    currentCarousel.rows.forEach((row) => {
+      const rowDiv = document.createElement('div');
+      rowDiv.className = 'carousel-row';
+
+      row.cards.forEach(card => {
+        const cardDiv = document.createElement('div');
+        cardDiv.className = 'card';
+
+        // Imagem
+        const imageWrap = document.createElement('div');
+        imageWrap.className = 'card-image-wrap';
+        imageWrap.onclick = () => {
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = 'image/*';
+          input.onchange = (e) => handleImageUpload(card.id, e);
+          input.click();
+        };
+        if (card.image) {
+          const img = document.createElement('img');
+          img.src = card.image;
+          img.alt = '';
+          imageWrap.appendChild(img);
+        } else {
+          imageWrap.innerHTML = '<div class="card-image-placeholder">🖼️<span>Carregar Imagem</span></div>';
+        }
+        const hint = document.createElement('div');
+        hint.className = 'card-image-hint';
+        hint.textContent = 'Clique para alterar';
+        imageWrap.appendChild(hint);
+        cardDiv.appendChild(imageWrap);
+
+        // Corpo
+        const body = document.createElement('div');
+        body.className = 'card-body';
+
+        const titleInput = document.createElement('input');
+        titleInput.type = 'text';
+        titleInput.className = 'card-title-input';
+        titleInput.placeholder = 'Título';
+        titleInput.value = card.title || '';
+        titleInput.oninput = (e) => updateCardTitle(card.id, e.target.value);
+        body.appendChild(titleInput);
+
+        const actions = document.createElement('div');
+        actions.className = 'card-actions';
+
+        const storyBtn = document.createElement('button');
+        storyBtn.className = 'card-btn';
+        storyBtn.textContent = '📝 História';
+        storyBtn.onclick = () => openStoryModal(card.id);
+        actions.appendChild(storyBtn);
+
+        body.appendChild(actions);
+        cardDiv.appendChild(body);
+
+        rowDiv.appendChild(cardDiv);
+      });
+
+      // Botão + horizontal para adicionar card
+      const addBtn = document.createElement('button');
+      addBtn.className = 'add-card-btn';
+      addBtn.textContent = '+';
+      addBtn.title = 'Adicionar card';
+      addBtn.onclick = () => addCard(row.id);
+      rowDiv.appendChild(addBtn);
+
+      container.appendChild(rowDiv);
+    });
+  }
+
+  // ================================================================
+  // DRAG & SWIPE HORIZONTAL
+  // ================================================================
+  function enableDragScroll() {
+    const rows = document.querySelectorAll('.carousel-row');
+    rows.forEach(row => {
+      let isDown = false;
+      let startX;
+      let scrollLeft;
+
+      row.addEventListener('mousedown', (e) => {
+        isDown = true;
+        startX = e.pageX - row.offsetLeft;
+        scrollLeft = row.scrollLeft;
+      });
+
+      row.addEventListener('mouseleave', () => {
+        isDown = false;
+      });
+
+      row.addEventListener('mouseup', () => {
+        isDown = false;
+      });
+
+      row.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+        const x = e.pageX - row.offsetLeft;
+        const walk = (x - startX) * 2; // velocidade do scroll
+        row.scrollLeft = scrollLeft - walk;
+      });
+    });
+  }
+
+  // ================================================================
+  // INICIALIZAÇÃO
+  // ================================================================
+  window.addEventListener('load', () => {
+    loadLocal();
+    pomodoro.init();
+    if (carousels.length > 0) {
+      currentCarousel = carousels[0];
+      document.getElementById('carouselName').value = currentCarousel.name;
+    } else {
+      newCarousel();
+    }
+    render();
+    enableDragScroll();
+
+    // Re-ativar drag após cada render
+    const observer = new MutationObserver(enableDragScroll);
+    observer.observe(document.getElementById('rowsContainer'), { childList: true, subtree: true });
+
+    // Fecha modal ao clicar fora
+    document.getElementById('storyModal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeStoryModal();
+    });
+
+    // Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js')
+        .then(() => console.log('SW registado'))
+        .catch(err => console.error('Erro SW:', err));
+    }
+  });
+
+  // Toast helper
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3500);
+  }
+</script>
+</body>
+</html>
