@@ -5,10 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CarrosselForge — Planeador de Carrosséis</title>
   
-  <base href="/plan/">
-
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f0f13">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -278,8 +277,12 @@
     .card-image-wrap img {
       width: 100%;
       height: 100%;
-      object-fit: cover;
-      display: none;
+      object-fit: contain;   /* <-- imagem inteira visível, sem cortes */
+      object-position: center;
+      display: block !important;
+      max-width: 100%;
+      max-height: 100%;
+      background: var(--bg-input); /* fundo para espaços vazios */
     }
     .card-image-placeholder {
       display: flex;
@@ -573,11 +576,20 @@
 <div class="toast" id="toast"></div>
 
 <script>
+  // ========== CONFIGURAÇÃO ==========
   const STORAGE_KEY = 'carouselforge_carousels';
+  const META_KEY = 'carouselforge_meta';
+  // Worker Cloudflare
+  const API_BASE = 'https://yaleria.bebbio.workers.dev';
+  const UPLOAD_URL = API_BASE;
+  const DATA_URL = API_BASE + '/data';
 
   let carousels = [];
   let currentCarousel = null;
   let currentCardId = null;
+  let isOnline = navigator.onLine;
+  let syncInProgress = false;
+  let pendingSync = false;
 
   // ================================================================
   // POMODORO
@@ -726,27 +738,146 @@
   };
 
   // ================================================================
-  // LÓGICA DO CARROSSEL (localStorage + upload R2)
+  // PERSISTÊNCIA LOCAL + SINCRONIZAÇÃO OFFLINE-FIRST
   // ================================================================
   function loadLocal() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) carousels = JSON.parse(saved) || [];
+      const meta = JSON.parse(localStorage.getItem(META_KEY) || '{}');
+      pendingSync = !!meta.pendingSync;
     } catch (e) {
       carousels = [];
+      pendingSync = false;
+    }
+  }
+
+  function persistLocal(showMsg = true) {
+    if (currentCarousel) {
+      currentCarousel.updatedAt = Date.now();
+      const idx = carousels.findIndex(c => c.id === currentCarousel.id);
+      if (idx >= 0) {
+        carousels[idx] = currentCarousel;
+      } else {
+        carousels.push(currentCarousel);
+      }
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(carousels));
+    pendingSync = true;
+    localStorage.setItem(META_KEY, JSON.stringify({ pendingSync: true, lastLocalChange: Date.now() }));
+    if (showMsg) showToast('💾 Guardado localmente' + (isOnline ? '' : ' (offline)'));
+    if (isOnline) {
+      pushToServer();
     }
   }
 
   function saveLocal() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(carousels));
-    showToast('💾 Guardado localmente');
+    persistLocal(true);
+  }
+
+  // Merge inteligente: por carousel.id, o mais recente (updatedAt) ganha
+  function mergeCarousels(localList, remoteList) {
+    const map = new Map();
+    (localList || []).forEach(c => {
+      if (c && c.id) map.set(c.id, c);
+    });
+    (remoteList || []).forEach(c => {
+      if (!c || !c.id) return;
+      const existing = map.get(c.id);
+      if (!existing || (c.updatedAt || 0) > (existing.updatedAt || 0)) {
+        map.set(c.id, c);
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  }
+
+  async function pullFromServer() {
+    if (!isOnline) return null;
+    try {
+      const res = await fetch(DATA_URL, { method: 'GET', cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      return data;
+    } catch (err) {
+      console.warn('Falha ao puxar dados do servidor:', err);
+      return null;
+    }
+  }
+
+  async function pushToServer() {
+    if (!isOnline || syncInProgress) return false;
+    syncInProgress = true;
+    try {
+      const payload = {
+        carousels: carousels,
+        updatedAt: Date.now()
+      };
+      const res = await fetch(DATA_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      pendingSync = false;
+      localStorage.setItem(META_KEY, JSON.stringify({ pendingSync: false, lastSync: Date.now() }));
+      return true;
+    } catch (err) {
+      console.warn('Falha ao enviar dados para o servidor:', err);
+      pendingSync = true;
+      return false;
+    } finally {
+      syncInProgress = false;
+    }
+  }
+
+  async function fullSync(showFeedback = true) {
+    if (!isOnline) {
+      if (showFeedback) showToast('📴 Offline — alterações guardadas localmente');
+      return;
+    }
+    if (syncInProgress) {
+      if (showFeedback) showToast('⏳ Sincronização em curso...');
+      return;
+    }
+    syncInProgress = true;
+    try {
+      const remote = await pullFromServer();
+      if (remote && Array.isArray(remote.carousels)) {
+        carousels = mergeCarousels(carousels, remote.carousels);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(carousels));
+      }
+      const ok = await pushToServer();
+      if (carousels.length > 0) {
+        const stillExists = currentCarousel && carousels.find(c => c.id === currentCarousel.id);
+        if (stillExists) {
+          currentCarousel = stillExists;
+        } else {
+          currentCarousel = carousels[0];
+        }
+        document.getElementById('carouselName').value = currentCarousel.name || '';
+        render();
+      } else {
+        newCarousel(false);
+      }
+      if (showFeedback) {
+        showToast(ok ? '✅ Sincronizado com o servidor' : '⚠️ Guardado localmente (servidor indisponível)');
+      }
+    } catch (err) {
+      console.error(err);
+      if (showFeedback) showToast('❌ Erro na sincronização');
+    } finally {
+      syncInProgress = false;
+    }
   }
 
   function syncNow() {
-    showToast('✅ Sincronização local concluída');
+    fullSync(true);
   }
 
-  function newCarousel() {
+  // ================================================================
+  // LÓGICA DO CARROSSEL
+  // ================================================================
+  function newCarousel(doSave = true) {
     const id = 'carousel_' + Date.now();
     currentCarousel = {
       id,
@@ -754,22 +885,39 @@
       rows: [ { id: 'row_' + Date.now(), cards: [] } ],
       updatedAt: Date.now()
     };
+    const idx = carousels.findIndex(c => c.id === currentCarousel.id);
+    if (idx >= 0) carousels[idx] = currentCarousel;
+    else carousels.push(currentCarousel);
+
     document.getElementById('carouselName').value = currentCarousel.name;
     render();
+    if (doSave) persistLocal(true);
   }
 
   function deleteCarousel() {
     if (!currentCarousel) return;
     if (!confirm('Eliminar este carrossel?')) return;
     carousels = carousels.filter(c => c.id !== currentCarousel.id);
-    saveLocal();
-    newCarousel();
+    persistLocal(true);
+    if (carousels.length > 0) {
+      currentCarousel = carousels[0];
+      document.getElementById('carouselName').value = currentCarousel.name;
+      render();
+    } else {
+      newCarousel(true);
+    }
   }
 
   function updateCarouselName(value) {
     if (currentCarousel) {
       currentCarousel.name = value;
-      saveLocal();
+      currentCarousel.updatedAt = Date.now();
+      const idx = carousels.findIndex(c => c.id === currentCarousel.id);
+      if (idx >= 0) carousels[idx] = currentCarousel;
+      else carousels.push(currentCarousel);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(carousels));
+      pendingSync = true;
+      localStorage.setItem(META_KEY, JSON.stringify({ pendingSync: true, lastLocalChange: Date.now() }));
     }
   }
 
@@ -779,7 +927,9 @@
       id: 'row_' + Date.now(),
       cards: []
     });
+    currentCarousel.updatedAt = Date.now();
     render();
+    persistLocal(true);
   }
 
   function addCard(rowId) {
@@ -792,7 +942,9 @@
       title: '',
       story: ''
     });
+    currentCarousel.updatedAt = Date.now();
     render();
+    persistLocal(true);
   }
 
   function updateCardTitle(cardId, value) {
@@ -801,39 +953,48 @@
       const card = row.cards.find(c => c.id === cardId);
       if (card) card.title = value;
     });
-    saveLocal();
+    currentCarousel.updatedAt = Date.now();
+    if (currentCarousel) {
+      const idx = carousels.findIndex(c => c.id === currentCarousel.id);
+      if (idx >= 0) carousels[idx] = currentCarousel;
+      else carousels.push(currentCarousel);
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(carousels));
+    pendingSync = true;
+    localStorage.setItem(META_KEY, JSON.stringify({ pendingSync: true, lastLocalChange: Date.now() }));
   }
 
-  // ============ NOVA FUNÇÃO DE UPLOAD (R2) ============
+  // ============ UPLOAD DE IMAGEM VIA WORKER ============
   async function handleImageUpload(cardId, event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Cria FormData
+    if (!isOnline) {
+      showToast('📴 Offline — liga-te à internet para carregar imagens');
+      return;
+    }
+
     const formData = new FormData();
     formData.append('file', file);
 
+    showToast('⬆️ A enviar imagem...');
     try {
-      // Faz upload para a Cloudflare Function
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData
-      });
-
+      const response = await fetch(UPLOAD_URL, { method: 'POST', body: formData });
       if (!response.ok) throw new Error('Falha no upload');
 
       const data = await response.json();
       const imageUrl = data.url;
 
-      // Atualiza o card no modelo atual
       if (!currentCarousel) return;
       currentCarousel.rows.forEach(row => {
         const card = row.cards.find(c => c.id === cardId);
         if (card) card.image = imageUrl;
       });
+      currentCarousel.updatedAt = Date.now();
 
-      saveLocal();
+      persistLocal(true);
       render();
+      showToast('🖼️ Imagem carregada');
     } catch (error) {
       console.error(error);
       showToast('❌ Erro ao carregar imagem');
@@ -864,9 +1025,10 @@
       const card = row.cards.find(c => c.id === currentCardId);
       if (card) {
         card.story = story;
-        saveLocal();
       }
     });
+    currentCarousel.updatedAt = Date.now();
+    persistLocal(true);
     closeStoryModal();
     showToast('📝 História guardada!');
   }
@@ -904,7 +1066,15 @@
         if (card.image) {
           const img = document.createElement('img');
           img.src = card.image;
-          img.alt = '';
+          img.alt = card.title || '';
+          img.loading = 'lazy';
+          img.onerror = () => {
+            imageWrap.innerHTML = '<div class="card-image-placeholder">⚠️<span>Erro ao carregar</span></div>';
+            const hint2 = document.createElement('div');
+            hint2.className = 'card-image-hint';
+            hint2.textContent = 'Clique para alterar';
+            imageWrap.appendChild(hint2);
+          };
           imageWrap.appendChild(img);
         } else {
           imageWrap.innerHTML = '<div class="card-image-placeholder">🖼️<span>Carregar Imagem</span></div>';
@@ -982,42 +1152,65 @@
         if (!isDown) return;
         e.preventDefault();
         const x = e.pageX - row.offsetLeft;
-        const walk = (x - startX) * 2; // velocidade do scroll
+        const walk = (x - startX) * 2;
         row.scrollLeft = scrollLeft - walk;
       });
     });
   }
 
   // ================================================================
+  // ONLINE / OFFLINE
+  // ================================================================
+  function updateOnlineStatus() {
+    isOnline = navigator.onLine;
+    if (isOnline) {
+      fullSync(true);
+    } else {
+      showToast('📴 Modo offline — as alterações serão sincronizadas depois');
+    }
+  }
+
+  // ================================================================
   // INICIALIZAÇÃO
   // ================================================================
-  window.addEventListener('load', () => {
+  window.addEventListener('load', async () => {
     loadLocal();
     pomodoro.init();
+
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+
+    if (isOnline) {
+      await fullSync(false);
+    }
+
     if (carousels.length > 0) {
       currentCarousel = carousels[0];
-      document.getElementById('carouselName').value = currentCarousel.name;
+      document.getElementById('carouselName').value = currentCarousel.name || '';
     } else {
-      newCarousel();
+      newCarousel(false);
     }
     render();
     enableDragScroll();
 
-    // Re-ativar drag após cada render
     const observer = new MutationObserver(enableDragScroll);
     observer.observe(document.getElementById('rowsContainer'), { childList: true, subtree: true });
 
-    // Fecha modal ao clicar fora
     document.getElementById('storyModal').addEventListener('click', (e) => {
       if (e.target === e.currentTarget) closeStoryModal();
     });
 
-    // Service Worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js')
         .then(() => console.log('SW registado'))
         .catch(err => console.error('Erro SW:', err));
     }
+
+    setInterval(() => {
+      if (isOnline && pendingSync && !syncInProgress) {
+        fullSync(false);
+      }
+    }, 60000);
   });
 
   // Toast helper

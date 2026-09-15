@@ -1,9 +1,9 @@
 {
   "name": "CarrosselForge",
   "short_name": "CarrosselForge",
-  "description": "Planeador de Carrosséis com Pomodoro e arrastar horizontal",
-  "start_url": "/plan/index.html",
-  "scope": "/plan/",
+  "description": "Planeador de Carrosséis com Pomodoro",
+  "start_url": "/index.html",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0f0f13",
   "theme_color": "#0f0f13",
